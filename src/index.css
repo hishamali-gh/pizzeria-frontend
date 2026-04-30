@@ -1,4 +1,5 @@
 /* FONTS */
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&display=swap'); /* DM SANS */
 @import url('https://fonts.googleapis.com/css2?family=Gloock&display=swap'); /* GLOOCK */
 @import url('https://fonts.googleapis.com/css2?family=Righteous&display=swap'); /* RIGHTEOUS */
 @import url('https://fonts.googleapis.com/css2?family=Cal+Sans&display=swap'); /* CAL SANS */
@@ -7,6 +8,23 @@
 
 @import "tailwindcss";
 
+
+/* <weight>: Use a value from 100 to 1000
+<uniquifier>: Use a unique and descriptive class name
+
+.dm-sans-<uniquifier> {
+  font-family: "DM Sans", sans-serif;
+  font-optical-sizing: auto;
+  font-weight: <weight>;
+  font-style: normal;
+} */
+
+.dm-sans-regular {
+  font-family: "DM Sans", sans-serif;
+  font-optical-sizing: auto;
+  font-weight: 600;
+  font-style: normal;
+}
 
 .gloock-regular {
     font-family: "Gloock", serif;
@@ -42,9 +60,9 @@
   font-style: normal;
 } */
 
-.zalando-sans-expanded-light {
+.zalando-sans-expanded-heavy {
   font-family: "Zalando Sans Expanded", sans-serif;
   font-optical-sizing: auto;
-  font-weight: 200;
+  font-weight: 700;
   font-style: normal;
 }

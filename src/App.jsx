@@ -1,7 +1,23 @@
+import LandingPage from "./pages/public/LandingPage";
+import LoginPage from "./pages/public/LogInPage";
+import SignUpPage from "./pages/public/SignUpPage";
+
+import Dashboard from "./pages/HMI/Dashboard";
+import DeviceInventory from "./pages/HMI/DeviceInventory";
+import CommandConsole from "./pages/HMI/CommandConsole";
+
+
 export default function App() {
     return(
-        <h1 className="text-3xl font-bold text-blue-500 zalando-sans-expanded-light">
-            PIZZERIA pizzeria Pizzeria
-        </h1>
+        <>
+            <LoginPage />
+            <SignUpPage />
+
+            <LandingPage />
+
+            <Dashboard />
+            <DeviceInventory />
+            <CommandConsole />
+        </>
     );
-};
+}
