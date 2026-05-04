@@ -3,14 +3,12 @@ import NavBar2 from '../../components/NavBar2';
 import Footer from '../../components/Footer';
 
 export default function MasterController() {
-  // 1. STATE: Visual HMI Layer
   const [devices, setDevices] = useState([
     { id: "OVN-001", name: "Master Oven Primary", val: 485, unit: "°F", power: true, status: "ACTIVE" },
     { id: "MIX-042", name: "Dough Hydrator", val: 89, unit: "%", power: true, status: "WARNING" },
     { id: "PMP-012", name: "Sauce Injector", val: 0, unit: "L/m", power: false, status: "OFFLINE" },
   ]);
 
-  // 2. STATE: Engineering Console Layer
   const [input, setInput] = useState("");
   const [consoleHistory, setConsoleHistory] = useState([
     { type: 'system', text: 'PIZZERIA V-DCS TERMINAL [Version 1.0.4]' },
@@ -28,10 +26,8 @@ export default function MasterController() {
     e.preventDefault();
     if (!input) return;
     const newEntry = { type: 'user', text: `> ${input}` };
-    let response = { type: 'error', text: `ERR: PROTOCOL UNRECOGNIZED: ${input.split(' ')[0]}` };
-    if (input.toLowerCase() === 'help') {
-      response = { type: 'system', text: 'AVAILABLE: STATUS, SHUTDOWN, SET_TEMP' };
-    }
+    let response = { type: 'error', text: `ERR: PROTOCOL UNRECOGNIZED` };
+    if (input.toLowerCase() === 'help') response = { type: 'system', text: 'AVAILABLE: STATUS, SHUTDOWN, SET_TEMP' };
     setConsoleHistory([...consoleHistory, newEntry, response]);
     setInput("");
   };
@@ -40,10 +36,10 @@ export default function MasterController() {
     <main className="min-h-screen bg-white dm-sans-regular flex flex-col">
       <NavBar2 variant="hmi" tenantName="Crust & Co - NY Branch" />
 
-      {/* Main Integrated Container */}
-      <div className="max-w-7xl mx-auto px-8 border-x border-gray-100 flex flex-col flex-1 w-full relative">
+      {/* Main Container - Keeps the crop logic with overflow-hidden */}
+      <div className="max-w-7xl mx-auto px-8 border-x border-gray-100 flex flex-col relative overflow-hidden min-h-screen w-full">
         
-        {/* HEADER SECTION - Tightened py-12 to py-8 */}
+        {/* HEADER SECTION - Normalized to px-8 to match footer */}
         <section className="py-8 -mx-8 px-8 border-b border-gray-100 bg-zinc-50/20">
           <p className="text-orange-600 font-bold tracking-[0.4em] uppercase text-[9px] mb-2">Hybrid Actuation Layer</p>
           <h1 className="text-5xl font-black tracking-tighter text-zinc-900 uppercase leading-none">
@@ -51,7 +47,7 @@ export default function MasterController() {
           </h1>
         </section>
 
-        {/* VISUAL HMI LAYER (Device Grid) - Tightened padding from p-8 to p-6 */}
+        {/* VISUAL HMI LAYER - Normalized row paddings to pl-8 */}
         <section className="-mx-8 border-b border-gray-100 bg-white">
           <div className="grid grid-cols-12 border-b border-gray-100 bg-zinc-50/10">
             <div className="col-span-4 p-4 pl-8 text-[9px] font-bold text-zinc-400 uppercase tracking-widest">Node Identity</div>
@@ -90,60 +86,45 @@ export default function MasterController() {
           ))}
         </section>
 
-        {/* ENGINEERING CONSOLE LAYER - Reduced padding and min-height for a tidier look */}
-        <section className="grid grid-cols-12 -mx-8 flex-1 min-h-125">
-          
-          {/* Terminal Output Feed */}
-          <div className="col-span-12 lg:col-span-9 bg-zinc-900 p-8 flex flex-col text-sm border-r border-zinc-800">
-            <div className="flex-1 overflow-y-auto space-y-1.5 mb-6 custom-scrollbar">
+        {/* ENGINEERING CONSOLE LAYER - Normalized inner padding to p-8 */}
+        <section className="grid grid-cols-12 -mx-8 border-b border-gray-100 bg-white">
+          <div className="col-span-12 lg:col-span-9 bg-zinc-900 p-8 flex flex-col text-sm border-r border-zinc-800 min-h-125">
+            <div className="flex-1 overflow-y-auto space-y-1.5 mb-6 max-h-80 custom-scrollbar">
               {consoleHistory.map((line, i) => (
                 <div key={i} className={`font-mono text-xs leading-relaxed ${
-                  line.type === 'user' ? 'text-white font-bold' : 
-                  line.type === 'error' ? 'text-red-400' : 
-                  line.type === 'success' ? 'text-green-400' : 'text-zinc-500'
+                  line.type === 'user' ? 'text-white font-bold' : line.type === 'error' ? 'text-red-400' : line.type === 'success' ? 'text-green-400' : 'text-zinc-500'
                 }`}>
                   {line.text}
                 </div>
               ))}
             </div>
-
-            {/* Terminal Input Line */}
             <form onSubmit={handleCommand} className="flex gap-3 border-t border-zinc-800 pt-6">
               <span className="text-orange-500 font-bold font-mono text-xs">root@pizzeria:~#</span>
               <input 
                 autoFocus
-                className="bg-transparent border-none outline-none text-white w-full font-mono text-xs placeholder:text-zinc-700"
+                className="bg-transparent border-none outline-none text-white w-full font-mono text-xs"
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                placeholder="Awaiting protocol..."
               />
             </form>
           </div>
 
-          {/* Quick-Ref Sidebar */}
           <aside className="col-span-12 lg:col-span-3 p-8 bg-zinc-50/50 flex flex-col border-l border-gray-100">
             <h3 className="text-[9px] font-bold uppercase tracking-[0.2em] text-zinc-400 mb-8">Protocol Guide</h3>
-            <div className="space-y-8 flex-1">
+            <div className="space-y-6">
               <div>
                 <p className="text-[10px] font-bold text-zinc-800 uppercase tracking-widest border-l border-orange-500 pl-3">STATUS [ID]</p>
-                <p className="text-[11px] text-zinc-500 mt-1 pl-4 leading-snug italic">Real-time node ping.</p>
+                <p className="text-[11px] text-zinc-500 mt-1 pl-4 italic">Node ping.</p>
               </div>
               <div>
                 <p className="text-[10px] font-bold text-zinc-800 uppercase tracking-widest border-l border-zinc-300 pl-3">SHUTDOWN [ID]</p>
-                <p className="text-[11px] text-zinc-500 mt-1 pl-4 leading-snug italic">Kill automated loop.</p>
-              </div>
-              
-              <div className="pt-8 border-t border-gray-200 mt-auto">
-                <p className="text-[8px] font-bold text-orange-600 uppercase tracking-widest">Active Auth</p>
-                <p className="text-xs font-bold text-zinc-900 mt-1 tracking-tight">Shift_Mgr_NY</p>
-                <div className="mt-3 px-3 py-1 bg-zinc-900 text-white text-[8px] font-bold rounded uppercase inline-block">
-                  Clearance: L4
-                </div>
+                <p className="text-[11px] text-zinc-500 mt-1 pl-4 italic">Emergency stop.</p>
               </div>
             </div>
           </aside>
         </section>
 
+        {/* FOOTER - Now aligns with the Header and rows */}
         <Footer />
 
       </div>
