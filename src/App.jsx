@@ -1,3 +1,5 @@
+import { BrowserRouter as Router, Route, Routes, Navigate } from "react-router-dom";
+
 import LandingPage from "./pages/public/LandingPage";
 import LoginPage from "./pages/public/LogInPage";
 import SignUpPage from "./pages/public/SignUpPage";
@@ -13,19 +15,21 @@ import Alerts from "./pages/HMI/Alerts";
 
 export default function App() {
     return(
-        <>
-            <LandingPage />
+        <Router>
+            <Routes>
+                <Route path="/" element={<LandingPage />} />
 
-            <LoginPage />
-            <SignUpPage />
+                <Route path="/login" element={<LoginPage />} />
+                <Route path="/register" element={<SignUpPage />} />
 
-            <ProfilePage />
+                <Route path="/profile" element={<ProfilePage />} />
 
-            <Dashboard />
-            <DeviceInventory />
-            <CommandConsole />
-            <Archive />
-            <Alerts />
-        </>
+                <Route path="/dashboard" element={<Dashboard />}/>
+                <Route path="/inventory" element={<DeviceInventory />} />
+                <Route path="/console" element={<CommandConsole />} />
+                <Route path="/archive" element={<Archive />} />
+                <Route path="/alerts" element={<Alerts />} />
+            </Routes>
+        </Router>
     );
 }

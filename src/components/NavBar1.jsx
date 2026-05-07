@@ -19,7 +19,7 @@ export default function NavBar1() {
           <a href="#pricing" className="text-sm font-medium text-zinc-600 hover:text-black transition-colors dm-sans-regular">
             Pricing
           </a>
-          <a href="#login" className="text-sm font-bold text-zinc-600 hover:text-black transition-colors dm-sans-regular">
+          <a href="/login" className="text-sm font-bold text-zinc-600 hover:text-black transition-colors dm-sans-regular">
             Login
           </a>
         </div>

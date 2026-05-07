@@ -5,7 +5,7 @@ import Footer from "../../components/Footer";
 export default function Dashboard() {
   return (
     <main className="min-h-screen bg-white dm-sans-regular">
-      <NavBar2 />
+      <NavBar2 variant="hmi" tenantName="Crust & Co - NY Branch" />
 
       {/* 2. The Integrated Grid Container */}
       <div className="max-w-7xl mx-auto px-8 border-x border-gray-100 flex flex-col relative overflow-hidden min-h-screen">
