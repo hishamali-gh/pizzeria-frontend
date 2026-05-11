@@ -37,14 +37,13 @@ export default function LoginPage() {
       }
 
       else if (res.status === 200) {
-        const { message, data, tokens } = res.data;
+        console.log(res.data);
 
-        localStorage.setItem('access', tokens.access);
-        localStorage.setItem('refresh', tokens.refresh);
+        const { message, data, tokens } = res.data;
 
         localStorage.setItem('user_info', JSON.stringify(data));
 
-        window.location.href = '/dashboard';
+        window.location.href = `http://${data.subdomain}.localhost:5173/profile?access=${tokens.access}&refresh=${tokens.refresh}`;
       }
     }
 
@@ -151,7 +150,7 @@ export default function LoginPage() {
 
       <section className="hidden lg:flex flex-1 relative overflow-hidden bg-zinc-900">
         <img
-          src="https://images.unsplash.com/photo-1513104890138-7c749659a591?q=80&w=2070&auto=format&fit=crop"
+          src="https://ueeshop.ly200-cdn.com/u_file/UPBE/UPBE667/2509/12/photo/RefineryDCSMonitoring.jpg?x-oss-process=image/format,webp/quality,q_100"
           alt="Command Center"
           className="absolute inset-0 w-full h-full object-cover"
         />

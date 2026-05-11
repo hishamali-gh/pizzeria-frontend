@@ -2,20 +2,21 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import API from '../../apiConfig';
 
+
 export default function SignUpPage() {
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
-  
+
   const [tenantName, setTenantName] = useState('');
   const [subdomain, setSubdomain] = useState('');
-  
+
+  const [selectedPlan, setSelectedPlan] = useState('');
+
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  
-  const [selectedPlan, setSelectedPlan] = useState('');
-  
+
   const [error, setError] = useState('');
 
   const navigate = useNavigate();
@@ -28,29 +29,33 @@ export default function SignUpPage() {
           name: tenantName, 
           subdomain 
         },
-        user: { 
-          full_name: fullName, 
-          email, 
-          password, 
-          confirm_password: confirmPassword 
-        },
         payment: {
           razorpay_order_id: paymentProof.razorpay_order_id,
           razorpay_payment_id: paymentProof.razorpay_payment_id,
           razorpay_signature: paymentProof.razorpay_signature,
           plan: selectedPlan 
+        },
+        user: { 
+          email, 
+          password, 
+          confirm_password: confirmPassword 
+        },
+        profile: {
+          full_name: fullName, 
         }
       };
 
       const res = await API.post('auth/register/', payload);
 
       if (res.status === 201) {
-        window.location.href = `http://${subdomain}.localhost:5173/login?init=success`;
+        const { subdomain } = res.data.data
+
+        window.location.href = `http://${subdomain}.localhost:5173/profile`;
       }
     } catch (err) {
       const backendError = err.response?.data?.payment || 
                            err.response?.data?.error || 
-                           "Registration failed after payment. Contact support.";
+                           "Registration failed. Contact support.";
       setError(backendError);
       setLoading(false);
     }
@@ -88,17 +93,20 @@ export default function SignUpPage() {
       };
 
       const rzp = new window.Razorpay(options);
+
       rzp.open();
     } catch (err) {
-      setError("Payment station failed to initialize. Check telemetry.");
+      setError("Payment interface failed to initialize.");
       setLoading(false);
     }
   };
 
   const handleNextStep = (e) => {
     e.preventDefault();
+
     if (password !== confirmPassword) {
       setError('Your password inputs don\'t match');
+
       return;
     }
     setError('');
@@ -109,7 +117,7 @@ export default function SignUpPage() {
     <main className="min-h-screen bg-white flex">
       <section className="hidden lg:flex flex-1 relative overflow-hidden bg-zinc-900">
         <img 
-          src="https://images.unsplash.com/photo-1590947132387-155cc02f3212?q=80&w=2070&auto=format&fit=crop" 
+          src="https://ueeshop.ly200-cdn.com/u_file/UPBE/UPBE667/2509/12/photo/RefineryDCSMonitoring.jpg?x-oss-process=image/format,webp/quality,q_100" 
           alt="Automated Pizzeria"
           className="absolute inset-0 w-full h-full object-cover opacity-60"
         />
@@ -117,7 +125,7 @@ export default function SignUpPage() {
 
       <section className="flex-1 flex items-center justify-center p-8 lg:p-24 bg-white relative">
         <div className="max-w-md w-full">
-          
+
           <div className="mb-10">
             <h2 className="text-3xl font-bold tracking-tighter text-zinc-900 uppercase">
               {step === 1 ? "Create Account" : "Select Your Tier"}
@@ -171,7 +179,7 @@ export default function SignUpPage() {
                     className="w-full px-5 py-3.5 bg-white border border-zinc-200 rounded-2xl text-sm focus:outline-none focus:border-orange-600 transition-all" 
                   />
                 </div>
-                
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <input 
                     type="password" placeholder="Password" required 
@@ -223,7 +231,7 @@ export default function SignUpPage() {
                   <p className="text-xs text-zinc-500 mt-1">{plan.desc}</p>
                 </button>
               ))}
-              
+
               {error && (
                 <div className="bg-red-50 text-red-600 text-[10px] font-bold uppercase p-3 rounded-xl text-center border border-red-100">
                   {error}

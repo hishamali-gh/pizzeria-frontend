@@ -1,14 +1,12 @@
 import axios from "axios";
 
+import Cookies from "js-cookie";
+
 
 const getBaseURL = () => {
     const { hostname, protocol } = window.location
 
-    if (hostname === 'localost' || hostname === '127.0.0.1'){
-        return `${protocol}//127.0.0.1:8000/`;
-    }
-
-    return `${protocol}//${hostname}:8000/`;
+    return `${protocol}//${hostname.split(':')[0]}:8000/`;
 }
 
 const API = axios.create({
@@ -24,5 +22,40 @@ API.interceptors.request.use(config => {
 
     return config;
 });
+
+API.interceptors.response.use(response => response,
+    async (error) => {
+        const originalRequest = error.config;
+
+        if (error.response?.status === 401 && !originalRequest._retry) {
+            originalRequest._retry = true;
+
+            try {
+                const refreshToken = localStorage.getItem('refresh');
+
+                const res = await axios.post(`${getBaseURL()}auth/token/refresh/`, {
+                    refresh: refreshToken
+                });
+
+                const newAccess = res.data.access;
+
+                localStorage.setItem('access', newAccess);
+
+                originalRequest.headers.Authorization = `Bearer ${newAccess}`;
+
+                return axios(originalRequest);
+            }
+            
+            catch (refreshError) {
+                console.error("Master session expired. Redirecting to Lobby.");
+
+                window.location.href = "http://localhost:5173/login";
+
+                return Promise.reject(refreshError);
+            }
+        }
+        return Promise.reject(error);
+    }
+);
 
 export default API;
