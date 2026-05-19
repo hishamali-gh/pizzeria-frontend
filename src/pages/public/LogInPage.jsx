@@ -37,8 +37,6 @@ export default function LoginPage() {
       }
 
       else if (res.status === 200) {
-        console.log(res.data);
-
         const { message, data, tokens } = res.data;
 
         localStorage.setItem('user_info', JSON.stringify(data));

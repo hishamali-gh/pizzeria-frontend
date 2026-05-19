@@ -7,7 +7,7 @@ export default function Footer() {
 
             <div className="relative h-150 w-full flex items-end">
                 <h2 className="text-[60rem] font-black text-orange-600 tracking-tighter leading-[0.8] dm-sans-regular select-none pointer-events-none translate-y-[30%]">
-                    Piz
+                    Pizzeria
                 </h2>
             </div>
         </>

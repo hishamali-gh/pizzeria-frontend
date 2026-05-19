@@ -6,7 +6,7 @@ import Cookies from "js-cookie";
 const getBaseURL = () => {
     const { hostname, protocol } = window.location
 
-    return `${protocol}//${hostname.split(':')[0]}:8000/`;
+    return `${protocol}//${hostname}:8000/`;
 }
 
 const API = axios.create({
