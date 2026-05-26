@@ -1,11 +1,19 @@
+import { useState } from 'react';
+
 import NavBar2 from "../../components/NavBar2";
 import Footer from "../../components/Footer";
+
+import DiagnosticDrawer from "../../components/DiagnosticDrawer";
 
 import DeviceCard from "../../components/DeviceCard";
 import HistorianChart from "../../components/HistorianChart";
 
 
 export default function Dashboard() {
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [selectedErrorCode, setSelectedErrorCode] = useState('');
+
+
   return (
     <main className="min-h-screen bg-white dm-sans-regular">
       <NavBar2 variant="hmi" tenantName="Crust & Co - NY Branch" />
@@ -13,6 +21,26 @@ export default function Dashboard() {
       <div className="max-w-7xl mx-auto px-8 border-x border-gray-100 flex flex-col relative overflow-hidden min-h-screen">
 
         <div className="grid grid-cols-12 -mx-8 border-b border-gray-100">
+{/* The Diagnostic Drawer (Overlay Component) */}
+        <DiagnosticDrawer 
+          isOpen={isDrawerOpen} 
+          onClose={() => setIsDrawerOpen(false)} 
+          initialErrorCode={selectedErrorCode} 
+        />
+
+        {/* Floating Action Button (The "Summon" Trigger) */}
+        <button 
+          onClick={() => {
+            setSelectedErrorCode('OVN-404'); // Simulate an error click
+            setIsDrawerOpen(true);
+          }}
+          className="fixed bottom-10 right-10 z-40 w-14 h-14 bg-zinc-900 text-orange-500 rounded-full shadow-2xl border border-zinc-700 flex items-center justify-center hover:bg-orange-600 hover:text-white transition-all transform hover:scale-105 active:scale-95"
+          title="AI Diagnostic Assistant"
+        >
+          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+          </svg>
+        </button>
 
           <section className="col-span-8 border-r border-gray-100 p-8">
             <h3 className="text-[10px] font-bold uppercase tracking-[0.3em] text-orange-600 mb-8">
