@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 
 export default function NavBar2({ variant = 'hmi', tenantName = 'Global Node' }) {
-  const userRole = JSON.parse(localStorage.getItem('user_info'))/* .role */;
+  const userRole = JSON.parse(localStorage.getItem('user_info')).role || {};
 
   const navAllocations = {
     viewer: [

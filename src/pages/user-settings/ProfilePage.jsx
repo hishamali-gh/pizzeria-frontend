@@ -37,6 +37,17 @@ export default function ProfilePage() {
         setProfile(res.data)
 
         setIsMFAEnabled(res.data.other.is_mfa_enabled);
+
+
+        // Hydrate localStorage with backend-resolved tenant name and role
+
+        const existingUserInfo = JSON.parse(localStorage.getItem('user_info')) || {};
+
+        localStorage.setItem('user_info', JSON.stringify({
+          ...existingUserInfo,
+          role: res.data.other.role,
+          tenant: res.data.tenant.name
+        }));
       }
     
       catch (err) {
