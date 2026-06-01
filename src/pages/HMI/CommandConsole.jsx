@@ -1,34 +1,154 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import API from '../../apiConfig';
 import NavBar2 from '../../components/NavBar2';
 import Footer from '../../components/Footer';
 
 export default function MasterController() {
-  const [devices, setDevices] = useState([
-    { id: "OVN-001", name: "Master Oven Primary", val: 485, unit: "°F", power: true, status: "ACTIVE" },
-    { id: "MIX-042", name: "Dough Hydrator", val: 89, unit: "%", power: true, status: "WARNING" },
-    { id: "PMP-012", name: "Sauce Injector", val: 0, unit: "L/m", power: false, status: "OFFLINE" },
-  ]);
-
+  const [devices, setDevices] = useState([]);
   const [input, setInput] = useState("");
   const [consoleHistory, setConsoleHistory] = useState([
     { type: 'system', text: 'PIZZERIA V-DCS TERMINAL [Version 1.0.4]' },
-    { type: 'system', text: 'TUNNEL: CRUST-NY-01 ESTABLISHED.' },
-    { type: 'system', text: 'READY FOR COMMANDS.' },
+    { type: 'system', text: 'GRID CONTROL NETWORKS OPERATIONAL.' },
+    { type: 'system', text: 'READY FOR PROTOCOLS.' },
   ]);
 
-  const togglePower = (id) => {
-    setDevices(devices.map(d => d.id === id ? { ...d, power: !d.power, status: !d.power ? 'ACTIVE' : 'OFFLINE' } : d));
-    const action = devices.find(d => d.id === id).power ? 'SHUTDOWN' : 'INITIALIZE';
-    setConsoleHistory([...consoleHistory, { type: 'system', text: `PROTOCOL: ${action} sequence broadcast to ${id}` }]);
+  // 1. Fetch live device inventory from database
+  useEffect(() => {
+    const fetchDevices = async () => {
+      try {
+        const res = await API.get('devices/inventory/');
+        const mappedDevices = res.data.map(device => ({
+          dbId: device.id,
+          id: device.device_id,
+          name: device.name,
+          val: device.setpoint || 0,
+          unit: device.type === 'oven' ? '°F' : device.type === 'conveyor' ? '%' : 'L/m',
+          power: device.is_on,
+          status: device.is_on ? 'ACTIVE' : 'OFFLINE',
+          type: device.type
+        }));
+        setDevices(mappedDevices);
+      } catch (err) {
+        console.error('Failed to load HMI telemetry grid', err);
+      }
+    };
+    fetchDevices();
+  }, []);
+
+  // 2. Connect WebSockets for real-time SCADA telemetry
+  useEffect(() => {
+    if (devices.length === 0) return;
+
+    const sockets = {};
+
+    devices.forEach(device => {
+      const { hostname, protocol } = window.location;
+      const wsProtocol = protocol === 'https:' ? 'wss:' : 'ws:';
+      const wsUrl = `${wsProtocol}//${hostname}:8000/ws/telemetry/${device.id}/`;
+      
+      const ws = new WebSocket(wsUrl);
+
+      ws.onmessage = (event) => {
+        const payload = JSON.parse(event.data);
+        setDevices(prevDevices => 
+          prevDevices.map(d => 
+            d.id === device.id 
+              ? { 
+                  ...d, 
+                  val: payload.value, 
+                  power: payload.status, 
+                  status: payload.status ? 'ACTIVE' : 'OFFLINE' 
+                } 
+              : d
+          )
+        );
+      };
+
+      sockets[device.id] = ws;
+    });
+
+    return () => {
+      Object.values(sockets).forEach(socket => socket.close());
+    };
+  }, [devices.map(d => d.id).join(',')]);
+
+  // 3. Actuate Controls (Power & Adjustment)
+  const togglePower = async (dbId, id, currentPower) => {
+    try {
+      await API.patch(`devices/${dbId}/control/`, { is_on: !currentPower });
+      setConsoleHistory(prev => [
+        ...prev, 
+        { type: 'system', text: `PROTOCOL: ${!currentPower ? 'START' : 'SHUTDOWN'} sequence dispatched to ${id}` }
+      ]);
+    } catch (err) {
+      setConsoleHistory(prev => [
+        ...prev, 
+        { type: 'error', text: `ERR: Transit failure on power command to ${id}` }
+      ]);
+    }
   };
 
-  const handleCommand = (e) => {
+  const handleSliderChange = async (dbId, id, value) => {
+    try {
+      await API.patch(`devices/${dbId}/control/`, { last_value: value });
+    } catch (err) {
+      console.error(`Failed to adjust value on ${id}`, err);
+    }
+  };
+
+  // 4. Command Input Handler
+  const handleCommand = async (e) => {
     e.preventDefault();
     if (!input) return;
+
     const newEntry = { type: 'user', text: `> ${input}` };
+    const parts = input.trim().split(/\s+/);
+    const command = parts[0].toLowerCase();
+    const targetId = parts[1];
+    const rawVal = parts[2];
+
     let response = { type: 'error', text: `ERR: PROTOCOL UNRECOGNIZED` };
-    if (input.toLowerCase() === 'help') response = { type: 'system', text: 'AVAILABLE: STATUS, SHUTDOWN, SET_TEMP' };
-    setConsoleHistory([...consoleHistory, newEntry, response]);
+
+    if (command === 'help') {
+      response = { type: 'system', text: 'AVAILABLE: STATUS [id], START [id], SHUTDOWN [id], SET_VAL [id] [value]' };
+      setConsoleHistory(prev => [...prev, newEntry, response]);
+      setInput("");
+      return;
+    }
+
+    const device = devices.find(d => d.id === targetId);
+    if (!device) {
+      if (['status', 'start', 'shutdown', 'set_val'].includes(command)) {
+        response = { type: 'error', text: `ERR: NODE ${targetId || 'UNKNOWN'} NOT REGISTERED` };
+      }
+      setConsoleHistory(prev => [...prev, newEntry, response]);
+      setInput("");
+      return;
+    }
+
+    try {
+      if (command === 'status') {
+        response = { type: 'success', text: `NODE ${device.id}: ${device.val}${device.unit} [${device.status}]` };
+      } else if (command === 'start') {
+        await API.patch(`devices/${device.dbId}/control/`, { is_on: true });
+        response = { type: 'system', text: `PROTOCOL: START sequence dispatched to ${device.id}` };
+      } else if (command === 'shutdown') {
+        await API.patch(`devices/${device.dbId}/control/`, { is_on: false });
+        response = { type: 'system', text: `PROTOCOL: SHUTDOWN sequence dispatched to ${device.id}` };
+      } else if (command === 'set_val') {
+        const val = parseFloat(rawVal);
+        if (isNaN(val)) {
+          response = { type: 'error', text: `ERR: EXPECTED NUMERICAL VALUE` };
+        } else {
+          await API.patch(`devices/${device.dbId}/control/`, { last_value: val });
+          response = { type: 'system', text: `PROTOCOL: SET_VAL (${val}${device.unit}) dispatched to ${device.id}` };
+        }
+      }
+    } catch (err) {
+      response = { type: 'error', text: `ERR: TRANSMISSION LOSS ON NODE ${device.id}` };
+    }
+
+    setConsoleHistory(prev => [...prev, newEntry, response]);
     setInput("");
   };
 
@@ -36,10 +156,8 @@ export default function MasterController() {
     <main className="min-h-screen bg-white dm-sans-regular flex flex-col">
       <NavBar2 variant="hmi" tenantName="Crust & Co - NY Branch" />
 
-      {/* Main Container - Keeps the crop logic with overflow-hidden */}
       <div className="max-w-7xl mx-auto px-8 border-x border-gray-100 flex flex-col relative overflow-hidden min-h-screen w-full">
         
-        {/* HEADER SECTION - Normalized to px-8 to match footer */}
         <section className="py-8 -mx-8 px-8 border-b border-gray-100 bg-zinc-50/20">
           <p className="text-orange-600 font-bold tracking-[0.4em] uppercase text-[9px] mb-2">Hybrid Actuation Layer</p>
           <h1 className="text-5xl font-black tracking-tighter text-zinc-900 uppercase leading-none">
@@ -47,7 +165,6 @@ export default function MasterController() {
           </h1>
         </section>
 
-        {/* VISUAL HMI LAYER - Normalized row paddings to pl-8 */}
         <section className="-mx-8 border-b border-gray-100 bg-white">
           <div className="grid grid-cols-12 border-b border-gray-100 bg-zinc-50/10">
             <div className="col-span-4 p-4 pl-8 text-[9px] font-bold text-zinc-400 uppercase tracking-widest">Node Identity</div>
@@ -65,13 +182,26 @@ export default function MasterController() {
               <div className="col-span-5 p-6 flex items-center gap-10">
                 <div className="flex flex-col gap-2">
                    <span className="text-[8px] font-bold text-zinc-400 uppercase tracking-widest text-center">Power</span>
-                   <button onClick={() => togglePower(device.id)} className={`w-8 h-4 rounded-full relative transition-colors ${device.power ? 'bg-orange-500' : 'bg-zinc-300'}`}>
+                   <button onClick={() => togglePower(device.dbId, device.id, device.power)} className={`w-8 h-4 rounded-full relative transition-colors ${device.power ? 'bg-orange-500' : 'bg-zinc-300'}`}>
                      <div className={`absolute top-0.5 w-3 h-3 bg-white rounded-full transition-all ${device.power ? 'left-4.5' : 'left-0.5'}`} />
                    </button>
                 </div>
                 <div className="flex-1 flex flex-col gap-2">
                    <span className="text-[8px] font-bold text-zinc-400 uppercase tracking-widest">Manual Adjustment</span>
-                   <input type="range" disabled={!device.power} className="w-full h-1 bg-zinc-200 rounded-lg appearance-none cursor-pointer accent-orange-600" />
+                   <input 
+                     type="range" 
+                     disabled={!device.power} 
+                     min={0}
+                     max={device.type === 'oven' ? 500 : device.type === 'conveyor' ? 1.0 : 20.0}
+                     step={device.type === 'conveyor' ? 0.05 : 1}
+                     value={device.val}
+                     onMouseUp={(e) => handleSliderChange(device.dbId, device.id, parseFloat(e.target.value))}
+                     onChange={(e) => {
+                       const value = parseFloat(e.target.value);
+                       setDevices(prev => prev.map(d => d.id === device.id ? { ...d, val: value } : d));
+                     }}
+                     className="w-full h-1 bg-zinc-200 rounded-lg appearance-none cursor-pointer accent-orange-600" 
+                   />
                 </div>
               </div>
 
@@ -80,13 +210,12 @@ export default function MasterController() {
                   <span className="text-[10px] font-bold text-zinc-800 uppercase tracking-tighter">{device.status}</span>
                   <div className={`h-1.5 w-1.5 rounded-full ${device.status === 'ACTIVE' ? 'bg-green-500' : 'bg-red-500'}`} />
                 </div>
-                <p className="text-2xl font-bold tracking-tighter text-zinc-900 mt-1">{device.val}{device.unit}</p>
+                <p className="text-2xl font-bold tracking-tighter text-zinc-900 mt-1">{device.val.toFixed(device.type === 'conveyor' ? 2 : 1)}{device.unit}</p>
               </div>
             </div>
           ))}
         </section>
 
-        {/* ENGINEERING CONSOLE LAYER - Normalized inner padding to p-8 */}
         <section className="grid grid-cols-12 -mx-8 border-b border-gray-100 bg-white">
           <div className="col-span-12 lg:col-span-9 bg-zinc-900 p-8 flex flex-col text-sm border-r border-zinc-800 min-h-125">
             <div className="flex-1 overflow-y-auto space-y-1.5 mb-6 max-h-80 custom-scrollbar">
@@ -117,16 +246,22 @@ export default function MasterController() {
                 <p className="text-[11px] text-zinc-500 mt-1 pl-4 italic">Node ping.</p>
               </div>
               <div>
+                <p className="text-[10px] font-bold text-zinc-800 uppercase tracking-widest border-l border-zinc-300 pl-3">START [ID]</p>
+                <p className="text-[11px] text-zinc-500 mt-1 pl-4 italic">Start device.</p>
+              </div>
+              <div>
                 <p className="text-[10px] font-bold text-zinc-800 uppercase tracking-widest border-l border-zinc-300 pl-3">SHUTDOWN [ID]</p>
                 <p className="text-[11px] text-zinc-500 mt-1 pl-4 italic">Emergency stop.</p>
+              </div>
+              <div>
+                <p className="text-[10px] font-bold text-zinc-800 uppercase tracking-widest border-l border-zinc-300 pl-3">SET_VAL [ID] [VAL]</p>
+                <p className="text-[11px] text-zinc-500 mt-1 pl-4 italic">Change value setpoint.</p>
               </div>
             </div>
           </aside>
         </section>
 
-        {/* FOOTER - Now aligns with the Header and rows */}
         <Footer />
-
       </div>
     </main>
   );

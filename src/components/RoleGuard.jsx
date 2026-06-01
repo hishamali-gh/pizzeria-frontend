@@ -2,7 +2,7 @@ import { Navigate } from 'react-router-dom';
 
 
 const RoleGuard = ({ children, minRole }) => {
-  const userRole = JSON.parse(localStorage.getItem('user_info')).role || {}; // 'viewer', 'worker', or 'admin'
+  const userRole = JSON.parse(localStorage.getItem('user_info'))?.role || 'viewer'; // 'viewer', 'worker', or 'admin'
 
   const roleHierarchy = {
     'viewer': 1,
