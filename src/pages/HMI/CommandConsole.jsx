@@ -75,7 +75,7 @@ export default function MasterController() {
   // 3. Actuate Controls (Power & Adjustment)
   const togglePower = async (dbId, id, currentPower) => {
     try {
-      await API.patch(`devices/${dbId}/control/`, { is_on: !currentPower });
+      await API.patch(`devices/inventory/${dbId}/control/`, { is_on: !currentPower });
       setConsoleHistory(prev => [
         ...prev, 
         { type: 'system', text: `PROTOCOL: ${!currentPower ? 'START' : 'SHUTDOWN'} sequence dispatched to ${id}` }
@@ -90,7 +90,7 @@ export default function MasterController() {
 
   const handleSliderChange = async (dbId, id, value) => {
     try {
-      await API.patch(`devices/${dbId}/control/`, { last_value: value });
+      await API.patch(`devices/inventory/${dbId}/control/`, { last_value: value });
     } catch (err) {
       console.error(`Failed to adjust value on ${id}`, err);
     }
