@@ -49,7 +49,7 @@ API.interceptors.response.use(response => response,
             catch (refreshError) {
                 console.error("Master session expired. Redirecting to Lobby.");
 
-                window.location.href = "http://localhost:5173/login";
+                window.location.href = "/login";
 
                 return Promise.reject(refreshError);
             }

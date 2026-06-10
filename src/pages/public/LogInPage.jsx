@@ -42,8 +42,9 @@ export default function LoginPage() {
         localStorage.setItem('user_info', JSON.stringify(data));
 
         const host = data.subdomain ? `${data.subdomain}.localhost` : 'localhost';
+        const port = window.location.port ? `:${window.location.port}` : '';
 
-        window.location.href = `http://${host}:5173/profile?access=${tokens.access}&refresh=${tokens.refresh}`;
+        window.location.href = `http://${host}${port}/profile?access=${tokens.access}&refresh=${tokens.refresh}`;
       }
     }
 
