@@ -8,8 +8,8 @@ export default function MasterController() {
   const [input, setInput] = useState("");
   const [consoleHistory, setConsoleHistory] = useState([
     { type: 'system', text: 'PIZZERIA V-DCS TERMINAL [Version 1.0.4]' },
-    { type: 'system', text: 'GRID CONTROL NETWORKS OPERATIONAL.' },
-    { type: 'system', text: 'READY FOR PROTOCOLS.' },
+    { type: 'system', text: 'TUNNEL: CRUST-NY-01 ESTABLISHED.' },
+    { type: 'system', text: 'READY FOR COMMANDS.' },
   ]);
 
   // 1. Fetch live device inventory from database
@@ -18,13 +18,15 @@ export default function MasterController() {
       try {
         const res = await API.get('devices/inventory/');
         const mappedDevices = res.data.map(device => ({
-          dbId: device.id,
-          id: device.device_id,
+          dbId: device.id,                // Database primary key UUID
+          id: device.device_id,           // Alphanumeric device ID (e.g., 'oven-01')
           name: device.name,
-          val: device.setpoint || 0,
+          setpoint: device.setpoint || 0, // Target temperature or conveyor speed
+          val: device.setpoint || 0,      // Live sensor value (starts at setpoint)
           unit: device.type === 'oven' ? '°F' : device.type === 'conveyor' ? '%' : 'L/m',
-          power: device.is_on,
-          status: device.is_on ? 'ACTIVE' : 'OFFLINE',
+          power: device.is_on,            // Power state (true/false)
+          isOnline: false,                // Connection health indicator (starts offline)
+          lastSeen: 0,                    // Last telemetry heartbeat timestamp
           type: device.type
         }));
         setDevices(mappedDevices);
@@ -45,20 +47,21 @@ export default function MasterController() {
       const { hostname, protocol } = window.location;
       const wsProtocol = protocol === 'https:' ? 'wss:' : 'ws:';
       const wsUrl = `${wsProtocol}//${hostname}:8000/ws/telemetry/${device.id}/`;
-      
+
       const ws = new WebSocket(wsUrl);
 
       ws.onmessage = (event) => {
         const payload = JSON.parse(event.data);
-        setDevices(prevDevices => 
-          prevDevices.map(d => 
-            d.id === device.id 
-              ? { 
-                  ...d, 
-                  val: payload.value, 
-                  power: payload.status, 
-                  status: payload.status ? 'ACTIVE' : 'OFFLINE' 
-                } 
+        setDevices(prevDevices =>
+          prevDevices.map(d =>
+            d.id === device.id
+              ? {
+                ...d,
+                val: payload.value,      // Update ONLY live value
+                power: payload.status,   // Power state reported by simulator
+                isOnline: true,          // Telemetry received! Node is online
+                lastSeen: Date.now()     // Update watchdog timestamp
+              }
               : d
           )
         );
@@ -72,13 +75,40 @@ export default function MasterController() {
     };
   }, [devices.map(d => d.id).join(',')]);
 
+  // 2B. Heartbeat watchdog to monitor node disconnection
+  useEffect(() => {
+    const watchdog = setInterval(() => {
+      setDevices(prevDevices => 
+        prevDevices.map(d => {
+          // If never heard from or heard > 6s ago, mark offline
+          const isOnline = d.lastSeen > 0 && (Date.now() - d.lastSeen < 6000);
+          return { ...d, isOnline };
+        })
+      );
+    }, 3000);
+
+    return () => clearInterval(watchdog);
+  }, []);
+
   // 3. Actuate Controls (Power & Adjustment)
   const togglePower = async (dbId, id, currentPower) => {
+    const nextPower = !currentPower;
     try {
-      await API.patch(`devices/inventory/${dbId}/control/`, { is_on: !currentPower });
+      await API.patch(`devices/inventory/${dbId}/control/`, { is_on: nextPower });
+      
+      // Update local state immediately for instant responsive feedback:
+      setDevices(prev => prev.map(d => 
+        d.id === id 
+          ? { 
+              ...d, 
+              power: nextPower
+            } 
+          : d
+      ));
+
       setConsoleHistory(prev => [
         ...prev, 
-        { type: 'system', text: `PROTOCOL: ${!currentPower ? 'START' : 'SHUTDOWN'} sequence dispatched to ${id}` }
+        { type: 'system', text: `PROTOCOL: ${nextPower ? 'START' : 'SHUTDOWN'} sequence dispatched to ${id}` }
       ]);
     } catch (err) {
       setConsoleHistory(prev => [
@@ -116,7 +146,7 @@ export default function MasterController() {
       return;
     }
 
-    const device = devices.find(d => d.id === targetId);
+    const device = devices.find(d => d.id.toLowerCase() === targetId?.toLowerCase());
     if (!device) {
       if (['status', 'start', 'shutdown', 'set_val'].includes(command)) {
         response = { type: 'error', text: `ERR: NODE ${targetId || 'UNKNOWN'} NOT REGISTERED` };
@@ -128,20 +158,35 @@ export default function MasterController() {
 
     try {
       if (command === 'status') {
-        response = { type: 'success', text: `NODE ${device.id}: ${device.val}${device.unit} [${device.status}]` };
+        response = { type: 'success', text: `NODE ${device.id}: Comm=${device.isOnline ? 'ONLINE' : 'OFFLINE'}, Power=${device.power ? 'ON' : 'OFF'}, Current=${device.val.toFixed(device.type === 'conveyor' ? 2 : 1)}${device.unit}, Target=${device.setpoint.toFixed(device.type === 'conveyor' ? 2 : 1)}${device.unit}` };
       } else if (command === 'start') {
-        await API.patch(`devices/${device.dbId}/control/`, { is_on: true });
-        response = { type: 'system', text: `PROTOCOL: START sequence dispatched to ${device.id}` };
-      } else if (command === 'shutdown') {
-        await API.patch(`devices/${device.dbId}/control/`, { is_on: false });
-        response = { type: 'system', text: `PROTOCOL: SHUTDOWN sequence dispatched to ${device.id}` };
-      } else if (command === 'set_val') {
-        const val = parseFloat(rawVal);
-        if (isNaN(val)) {
-          response = { type: 'error', text: `ERR: EXPECTED NUMERICAL VALUE` };
+        if (!device.isOnline) {
+          response = { type: 'error', text: `ERR: NODE ${device.id} OFFLINE - CANNOT COMMAND` };
         } else {
-          await API.patch(`devices/${device.dbId}/control/`, { last_value: val });
-          response = { type: 'system', text: `PROTOCOL: SET_VAL (${val}${device.unit}) dispatched to ${device.id}` };
+          await API.patch(`devices/inventory/${device.dbId}/control/`, { is_on: true });
+          setDevices(prev => prev.map(d => d.id === device.id ? { ...d, power: true } : d));
+          response = { type: 'system', text: `PROTOCOL: START sequence dispatched to ${device.id}` };
+        }
+      } else if (command === 'shutdown') {
+        if (!device.isOnline) {
+          response = { type: 'error', text: `ERR: NODE ${device.id} OFFLINE - CANNOT COMMAND` };
+        } else {
+          await API.patch(`devices/inventory/${device.dbId}/control/`, { is_on: false });
+          setDevices(prev => prev.map(d => d.id === device.id ? { ...d, power: false } : d));
+          response = { type: 'system', text: `PROTOCOL: SHUTDOWN sequence dispatched to ${device.id}` };
+        }
+      } else if (command === 'set_val') {
+        if (!device.isOnline) {
+          response = { type: 'error', text: `ERR: NODE ${device.id} OFFLINE - CANNOT COMMAND` };
+        } else {
+          const val = parseFloat(rawVal);
+          if (isNaN(val)) {
+            response = { type: 'error', text: `ERR: EXPECTED NUMERICAL VALUE` };
+          } else {
+            await API.patch(`devices/inventory/${device.dbId}/control/`, { last_value: val });
+            setDevices(prev => prev.map(d => d.id === device.id ? { ...d, setpoint: val } : d));
+            response = { type: 'system', text: `PROTOCOL: SET_VAL (${val}${device.unit}) dispatched to ${device.id}` };
+          }
         }
       }
     } catch (err) {
@@ -157,7 +202,7 @@ export default function MasterController() {
       <NavBar2 variant="hmi" tenantName="Crust & Co - NY Branch" />
 
       <div className="max-w-7xl mx-auto px-8 border-x border-gray-100 flex flex-col relative overflow-hidden min-h-screen w-full">
-        
+
         <section className="py-8 -mx-8 px-8 border-b border-gray-100 bg-zinc-50/20">
           <p className="text-orange-600 font-bold tracking-[0.4em] uppercase text-[9px] mb-2">Hybrid Actuation Layer</p>
           <h1 className="text-5xl font-black tracking-tighter text-zinc-900 uppercase leading-none">
@@ -173,7 +218,7 @@ export default function MasterController() {
           </div>
 
           {devices.map((device, i) => (
-            <div key={i} className={`grid grid-cols-12 border-b border-gray-100 last:border-0 hover:bg-zinc-50/30 transition-all ${!device.power ? 'opacity-40' : ''}`}>
+            <div key={i} className={`grid grid-cols-12 border-b border-gray-100 last:border-0 hover:bg-zinc-50/30 transition-all ${!device.isOnline ? 'opacity-40' : ''}`}>
               <div className="col-span-4 p-6 pl-8">
                 <p className="text-base font-bold text-zinc-900 tracking-tight leading-none">{device.name}</p>
                 <p className="text-[10px] font-mono text-zinc-400 mt-2 uppercase tracking-wider">{device.id}</p>
@@ -182,23 +227,32 @@ export default function MasterController() {
               <div className="col-span-5 p-6 flex items-center gap-10">
                 <div className="flex flex-col gap-2">
                    <span className="text-[8px] font-bold text-zinc-400 uppercase tracking-widest text-center">Power</span>
-                   <button onClick={() => togglePower(device.dbId, device.id, device.power)} className={`w-8 h-4 rounded-full relative transition-colors ${device.power ? 'bg-orange-500' : 'bg-zinc-300'}`}>
+                   <button 
+                     disabled={!device.isOnline}
+                     onClick={() => togglePower(device.dbId, device.id, device.power)} 
+                     className={`w-8 h-4 rounded-full relative transition-colors ${!device.isOnline ? 'bg-zinc-200 cursor-not-allowed' : device.power ? 'bg-orange-500' : 'bg-zinc-300'}`}
+                   >
                      <div className={`absolute top-0.5 w-3 h-3 bg-white rounded-full transition-all ${device.power ? 'left-4.5' : 'left-0.5'}`} />
                    </button>
                 </div>
                 <div className="flex-1 flex flex-col gap-2">
-                   <span className="text-[8px] font-bold text-zinc-400 uppercase tracking-widest">Manual Adjustment</span>
+                   <div className="flex justify-between items-center">
+                     <span className="text-[8px] font-bold text-zinc-400 uppercase tracking-widest">Setpoint / Target</span>
+                     <span className="text-[10px] font-mono font-bold text-orange-600">
+                       {device.setpoint.toFixed(device.type === 'conveyor' ? 2 : 1)}{device.unit}
+                     </span>
+                   </div>
                    <input 
                      type="range" 
-                     disabled={!device.power} 
+                     disabled={!device.isOnline || !device.power} 
                      min={0}
                      max={device.type === 'oven' ? 500 : device.type === 'conveyor' ? 1.0 : 20.0}
                      step={device.type === 'conveyor' ? 0.05 : 1}
-                     value={device.val}
+                     value={device.setpoint}
                      onMouseUp={(e) => handleSliderChange(device.dbId, device.id, parseFloat(e.target.value))}
                      onChange={(e) => {
                        const value = parseFloat(e.target.value);
-                       setDevices(prev => prev.map(d => d.id === device.id ? { ...d, val: value } : d));
+                       setDevices(prev => prev.map(d => d.id === device.id ? { ...d, setpoint: value } : d));
                      }}
                      className="w-full h-1 bg-zinc-200 rounded-lg appearance-none cursor-pointer accent-orange-600" 
                    />
@@ -206,11 +260,23 @@ export default function MasterController() {
               </div>
 
               <div className="col-span-3 p-6 pr-8 flex flex-col items-end justify-center">
-                <div className="flex items-center gap-2">
-                  <span className="text-[10px] font-bold text-zinc-800 uppercase tracking-tighter">{device.status}</span>
-                  <div className={`h-1.5 w-1.5 rounded-full ${device.status === 'ACTIVE' ? 'bg-green-500' : 'bg-red-500'}`} />
+                <div className="flex items-center gap-4 mb-2">
+                  <span className={`text-[9px] font-bold px-2 py-0.5 rounded ${device.power ? 'bg-orange-100 text-orange-700' : 'bg-zinc-100 text-zinc-600'}`}>
+                    {device.power ? 'POWER: ON' : 'POWER: OFF'}
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-bold text-zinc-800 uppercase tracking-tighter">
+                      {device.isOnline ? 'ONLINE' : 'OFFLINE'}
+                    </span>
+                    <div className={`h-1.5 w-1.5 rounded-full ${device.isOnline ? 'bg-green-500' : 'bg-red-500'}`} />
+                  </div>
                 </div>
-                <p className="text-2xl font-bold tracking-tighter text-zinc-900 mt-1">{device.val.toFixed(device.type === 'conveyor' ? 2 : 1)}{device.unit}</p>
+                <div className="text-right mt-1">
+                  <span className="text-[8px] font-bold text-zinc-400 uppercase tracking-widest block">Current Reading</span>
+                  <p className="text-2xl font-bold tracking-tighter text-zinc-900 leading-none">
+                    {device.val.toFixed(device.type === 'conveyor' ? 2 : 1)}{device.unit}
+                  </p>
+                </div>
               </div>
             </div>
           ))}
@@ -220,16 +286,15 @@ export default function MasterController() {
           <div className="col-span-12 lg:col-span-9 bg-zinc-900 p-8 flex flex-col text-sm border-r border-zinc-800 min-h-125">
             <div className="flex-1 overflow-y-auto space-y-1.5 mb-6 max-h-80 custom-scrollbar">
               {consoleHistory.map((line, i) => (
-                <div key={i} className={`font-mono text-xs leading-relaxed ${
-                  line.type === 'user' ? 'text-white font-bold' : line.type === 'error' ? 'text-red-400' : line.type === 'success' ? 'text-green-400' : 'text-zinc-500'
-                }`}>
+                <div key={i} className={`font-mono text-xs leading-relaxed ${line.type === 'user' ? 'text-white font-bold' : line.type === 'error' ? 'text-red-400' : line.type === 'success' ? 'text-green-400' : 'text-zinc-500'
+                  }`}>
                   {line.text}
                 </div>
               ))}
             </div>
             <form onSubmit={handleCommand} className="flex gap-3 border-t border-zinc-800 pt-6">
               <span className="text-orange-500 font-bold font-mono text-xs">root@pizzeria:~#</span>
-              <input 
+              <input
                 autoFocus
                 className="bg-transparent border-none outline-none text-white w-full font-mono text-xs"
                 value={input}
