@@ -6,7 +6,24 @@ import Cookies from "js-cookie";
 const getBaseURL = () => {
     const { hostname, protocol } = window.location
 
-    return `${protocol}//${hostname}:8000/`;
+    // If running locally, keep using the local setup on port 8000
+    if (hostname === 'localhost' || hostname.endsWith('localhost')) {
+        return `${protocol}//${hostname}:8000/`;
+    }
+
+    // If running on Vercel:
+    const parts = hostname.split('.');
+    const isVercel = hostname.endswith('.vercel.app');
+
+    // If it has a tenant subdomain (e.g. tenant.project.vercel.app [4 parts] or tenant.domain.com [3 parts])
+    if ((isVercel && parts.length > 3) || (!isVercel && parts.length > 2)) {
+        const tenant = parts[0];
+
+        return `http://${tenant}.65.0.103.158.nip.io:8000/`;
+    }
+
+    // Default to the main public EC2 API endpoint
+    return `http://65.0.103.158.nip.io:8000/`;
 }
 
 const API = axios.create({
