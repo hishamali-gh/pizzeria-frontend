@@ -13,7 +13,7 @@ const getBaseURL = () => {
 
     // If running on Vercel:
     const parts = hostname.split('.');
-    const isVercel = hostname.endswith('.vercel.app');
+    const isVercel = hostname.endsWith('.vercel.app');
 
     // If it has a tenant subdomain (e.g. tenant.project.vercel.app [4 parts] or tenant.domain.com [3 parts])
     if ((isVercel && parts.length > 3) || (!isVercel && parts.length > 2)) {
