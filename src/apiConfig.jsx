@@ -15,15 +15,15 @@ const getBaseURL = () => {
     const parts = hostname.split('.');
     const isVercel = hostname.endsWith('.vercel.app');
 
-    // If it has a tenant subdomain (e.g. tenant.project.vercel.app [4 parts] or tenant.domain.com [3 parts])
+    // If it has a tenant subdomain
     if ((isVercel && parts.length > 3) || (!isVercel && parts.length > 2)) {
         const tenant = parts[0];
 
-        return `http://${tenant}.65.0.103.158.nip.io:8000/`;
+        return `https://${tenant}.pizzeriavdcs.duckdns.org/`;
     }
 
-    // Default to the main public EC2 API endpoint
-    return `http://65.0.103.158.nip.io:8000/`;
+    // Default to the main public EC2 API endpoint (using 'api.' prefix to match wildcard certificate)
+    return `https://api.pizzeriavdcs.duckdns.org/`;
 }
 
 const API = axios.create({

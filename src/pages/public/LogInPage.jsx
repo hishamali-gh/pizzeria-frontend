@@ -41,10 +41,19 @@ export default function LoginPage() {
 
         localStorage.setItem('user_info', JSON.stringify(data));
 
-        const host = data.subdomain ? `${data.subdomain}.localhost` : 'localhost';
-        const port = window.location.port ? `:${window.location.port}` : '';
+        const { protocol, hostname, port } = window.location;
+        const parts = hostname.split('.');
+        const isVercel = hostname.endsWith('.vercel.app');
 
-        window.location.href = `http://${host}${port}/profile?access=${tokens.access}&refresh=${tokens.refresh}`;
+        let baseDomain = hostname;
+        if ((isVercel && parts.length > 3) || (!isVercel && parts.length > 2 && !hostname.endsWith('localhost'))) {
+          baseDomain = parts.slice(1).join('.');
+        }
+
+        const host = data.subdomain ? `${data.subdomain}.${baseDomain}` : baseDomain;
+        const redirectPort = port ? `:${port}` : '';
+
+        window.location.href = `${protocol}//${host}${redirectPort}/profile?access=${tokens.access}&refresh=${tokens.refresh}`;
       }
     }
 

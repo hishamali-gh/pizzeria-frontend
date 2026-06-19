@@ -6,13 +6,20 @@ export default function useTelemetry(deviceId) {
 
 
     useEffect(() => {
-        const subdomain = window.location.hostname.split('.')[0];
+        const { hostname } = window.location;
+        const subdomain = hostname.split('.')[0];
 
+        const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        let wsHost;
 
-        // Get the tenant name from the URL (e.g., willow.localhost -> willow)
+        if (hostname.endsWith('localhost')) {
+            wsHost = `${subdomain}.localhost:8000`;
+        } else {
+            wsHost = `${subdomain}.pizzeriavdcs.duckdns.org`;
+        }
 
         const socket = new WebSocket(
-            `ws://${subdomain}.localhost:8000/ws/telemetry/${deviceId}/`
+            `${wsProtocol}//${wsHost}/ws/telemetry/${deviceId}/`
         );
 
 
