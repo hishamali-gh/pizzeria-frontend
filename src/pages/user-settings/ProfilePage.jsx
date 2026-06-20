@@ -51,7 +51,8 @@ export default function ProfilePage() {
       }
     
       catch (err) {
-        console.error('Session expired or unauthorized', err)
+        console.error('Session expired or unauthorized', err);
+        window.location.href = '/login';
       }
     };
     
@@ -110,20 +111,22 @@ export default function ProfilePage() {
                 </h3>
               </div>
 
-              <a 
-                href="/management-hub" 
-                className="group flex items-center gap-4 bg-zinc-900 text-white px-6 py-3 transition-all hover:bg-orange-500"
-              >
-                <span className="font-mono text-[11px] tracking-widest uppercase">
-                  Enter_Provisioning_Mode
-                </span>
-                <svg 
-                  width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" 
-                  className="group-hover:translate-x-1 transition-transform"
+              {(profile.other.role === 'admin' || profile.other.role === 'superadmin') && (
+                <a 
+                  href="/management-hub" 
+                  className="group flex items-center gap-4 bg-zinc-900 text-white px-6 py-3 transition-all hover:bg-orange-500"
                 >
-                  <path d="M5 12h14M12 5l7 7-7 7"/>
-                </svg>
-              </a>
+                  <span className="font-mono text-[11px] tracking-widest uppercase">
+                    Enter_Provisioning_Mode
+                  </span>
+                  <svg 
+                    width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" 
+                    className="group-hover:translate-x-1 transition-transform"
+                  >
+                    <path d="M5 12h14M12 5l7 7-7 7"/>
+                  </svg>
+                </a>
+              )}
             </div>
 
             <div className="grid grid-cols-12 gap-8">

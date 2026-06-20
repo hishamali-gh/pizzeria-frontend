@@ -18,7 +18,7 @@ import RoleGuard from "./components/RoleGuard";
 
 
 export default function App() {
-    return(
+    return (
         <Router>
             <Routes>
                 <Route path="/" element={<LandingPage />} />
@@ -26,7 +26,11 @@ export default function App() {
                 <Route path="/login" element={<LoginPage />} />
                 <Route path="/register" element={<SignUpPage />} />
 
-                <Route path="/profile" element={<ProfilePage />} />
+                <Route path="/profile" element={
+                    <RoleGuard minRole='viewer'>
+                        <ProfilePage />
+                    </RoleGuard>
+                } />
                 <Route path="/management-hub" element={
                     <RoleGuard minRole='admin'>
                         <ManagementHub />
@@ -38,7 +42,7 @@ export default function App() {
                     <RoleGuard minRole='viewer'>
                         <Dashboard />
                     </RoleGuard>
-                }/>
+                } />
                 <Route path="/inventory" element={
                     <RoleGuard minRole='viewer'>
                         <DeviceInventory />
@@ -49,8 +53,16 @@ export default function App() {
                         <CommandConsole />
                     </RoleGuard>
                 } />
-                <Route path="/archive" element={<Archive />} />
-                <Route path="/alerts" element={<Alerts />} />
+                <Route path="/archive" element={
+                    <RoleGuard minRole='viewer'>
+                        <Archive />
+                    </RoleGuard>
+                } />
+                <Route path="/alerts" element={
+                    <RoleGuard minRole='viewer'>
+                        <Alerts />
+                    </RoleGuard>
+                } />
             </Routes>
         </Router>
     );

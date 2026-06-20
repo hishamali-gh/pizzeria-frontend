@@ -1,7 +1,18 @@
 import { Link } from 'react-router-dom';
 
 export default function NavBar2({ variant = 'hmi', tenantName = 'Global Node' }) {
-  const userRole = JSON.parse(localStorage.getItem('user_info'))?.role || 'viewer';
+  // Retrieve user info and role from localStorage
+  const userInfo = JSON.parse(localStorage.getItem('user_info')) || {};
+  const userRole = userInfo.role || 'Admin';
+  const userName = userInfo.user || 'Operator';
+
+  // Compute initials for the profile avatar
+  const initials = userName
+    .split(' ')
+    .map((name) => name[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase();
 
   const navAllocations = {
     viewer: [
@@ -21,7 +32,6 @@ export default function NavBar2({ variant = 'hmi', tenantName = 'Global Node' })
       { label: 'Dashboard', path: '/dashboard' },
       { label: 'Inventory', path: '/inventory' },
       { label: 'Console', path: '/console' },
-      { label: 'Management', path: '/management' },
       { label: 'Alerts', path: '/alerts' },
     ],
   };
@@ -85,10 +95,26 @@ export default function NavBar2({ variant = 'hmi', tenantName = 'Global Node' })
                   <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
                 </span>
               </div>
+              <Link
+                to="/profile"
+                className="flex items-center gap-3 pl-6 border-l border-zinc-200 hover:opacity-80 transition-all animate-fade-in"
+              >
+                <div className="flex flex-col items-end hidden sm:flex">
+                  <span className="text-[10px] font-bold text-zinc-800 uppercase tracking-tight font-mono leading-none">
+                    {userName}
+                  </span>
+                  <span className="text-[8px] font-bold uppercase tracking-widest text-zinc-400 font-mono mt-0.5">
+                    {userRole}
+                  </span>
+                </div>
+                <div className="w-8 h-8 rounded-full bg-zinc-900 border border-zinc-700 flex items-center justify-center text-[10px] font-mono font-bold text-orange-500 shadow-inner">
+                  {initials}
+                </div>
+              </Link>
             </div>
           ) : (
             <div className="flex items-center gap-3 px-4 py-2 bg-green-50/50 border border-green-100 rounded-full">
-               <span className="text-[10px] font-bold text-green-700 uppercase tracking-widest font-mono">
+              <span className="text-[10px] font-bold text-green-700 uppercase tracking-widest font-mono">
                 System_Online
               </span>
             </div>

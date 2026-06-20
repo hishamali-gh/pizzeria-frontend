@@ -1,8 +1,14 @@
 import { Navigate } from 'react-router-dom';
 
-
 const RoleGuard = ({ children, minRole }) => {
-  const userRole = JSON.parse(localStorage.getItem('user_info'))?.role || 'viewer'; // 'viewer', 'worker', or 'admin'
+  const userInfo = JSON.parse(localStorage.getItem('user_info'));
+
+  // If no user is logged in, redirect to login page
+  if (!userInfo) {
+    return <Navigate to="/login" replace />;
+  }
+
+  const userRole = userInfo.role || 'viewer'; // Fallback to viewer role if not specified
 
   const roleHierarchy = {
     'viewer': 1,
@@ -16,7 +22,6 @@ const RoleGuard = ({ children, minRole }) => {
 
   if (userLevel < requiredLevel) {
     console.warn(`Clearance Level ${userLevel} attempted to access Level ${requiredLevel} sector. Ejecting...`);
-    
     return <Navigate to="/" replace />;
   }
 
