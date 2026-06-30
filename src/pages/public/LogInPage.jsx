@@ -46,7 +46,11 @@ export default function LoginPage() {
         const isVercel = hostname.endsWith('.vercel.app');
 
         let baseDomain = hostname;
-        if ((isVercel && parts.length > 3) || (!isVercel && parts.length > 2 && !hostname.endsWith('localhost'))) {
+        if (
+          (isVercel && parts.length > 3) || 
+          (!isVercel && parts.length > 2 && !hostname.endsWith('localhost')) ||
+          (hostname.endsWith('localhost') && parts.length > 1)
+        ) {
           baseDomain = parts.slice(1).join('.');
         }
 

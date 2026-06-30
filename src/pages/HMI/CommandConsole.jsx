@@ -45,8 +45,17 @@ export default function MasterController() {
 
     devices.forEach(device => {
       const { hostname, protocol } = window.location;
+      const subdomain = hostname.split('.')[0];
       const wsProtocol = protocol === 'https:' ? 'wss:' : 'ws:';
-      const wsUrl = `${wsProtocol}//${hostname}:8000/ws/telemetry/${device.id}/`;
+      let wsHost;
+
+      if (hostname.endsWith('localhost')) {
+          wsHost = `${hostname}:8000`;
+      } else {
+          wsHost = `${subdomain}.pizzeriavdcs.duckdns.org`;
+      }
+
+      const wsUrl = `${wsProtocol}//${wsHost}/ws/telemetry/${device.id}/`;
 
       const ws = new WebSocket(wsUrl);
 
